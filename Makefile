@@ -19,7 +19,7 @@ all: $(BOOT_IMG)
 
 # ====== Compile Bootloader ======
 $(BOOT_BIN): $(BOOT_SRC) $(GDT_SRC) | $(BIN_DIR)
-	$(ASM) $(BOOT_SRC) -f bin -o $(BOOT_BIN)
+	$(ASM) -I$(SRC_DIR)/ $(BOOT_SRC) -f bin -o $(BOOT_BIN)
 
 # ====== Create Floppy Image ======
 $(BOOT_IMG): $(BOOT_BIN) | $(IMG_DIR)
