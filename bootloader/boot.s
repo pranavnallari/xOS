@@ -11,6 +11,19 @@ start:
     mov ss, ax
     mov sp, 0x7C00  ; set default SP location
 
+    ; Load 10 sectors from floppy into 0x1000:0x0000
+    mov bx, 0x1000        ; ES = 0x1000
+    mov es, bx
+    xor bx, bx            ; BX = 0
+    mov ah, 0x02          ; BIOS read sectors
+    mov al, 10            ; read 10 sectors
+    mov ch, 0             ; cylinder
+    mov cl, 2             ; sector 2 (bootloader is sector 1)
+    mov dh, 0             ; head
+    mov dl, 0             ; drive 0 (floppy)
+    int 0x13
+    jc disk_error
+
     call load_gdt ; Load the GDT Table with the starting address of the Table
 
     mov eax, cr0
@@ -20,6 +33,12 @@ start:
     ; register is reloaded with a 32-bit descriptor.
     ; Far jump to flush pipeline and enter protected mode
     jmp 08h:protected_mode_entry   ;  0x08 is the offset in the GDT of the 32-bit code segment
+
+
+disk_error: ; Hang forever if disk read failed
+    cli
+    hlt
+    jmp $
 
 ; ------------------------------------------------------------------------------
 ; Include GDT setup
@@ -36,25 +55,11 @@ protected_mode_entry:
     mov fs, ax
     mov gs, ax
     mov ss, ax
+    mov esp, 0x90000
     ; This sets up all memory acceses to use the 4GB space we defined in the GDT.
+ 
+    jmp dword 0x10000
 
-    ; Start of Printing our String
-    mov esi, msg
-    mov edi, 0xB8000
-
-.next_char:
-    lodsb
-    test al, al
-    jz .halt
-    mov ah, 0x0F      ; Light gray on black
-    stosw
-    jmp .next_char
-
-.halt:
-    cli
-    hlt
-
-
-msg db "Hello from Protected Mode!", 0Ah, 0
+    
 times 510 - ($ - $$) db 0	;fill the rest of the sector with 0's
 dw 0xAA55
