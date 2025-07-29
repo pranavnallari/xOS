@@ -1,45 +1,51 @@
-# ====== Tools ======
-ASM  = nasm
-QEMU = qemu-system-i386
-DD   = dd
+# === Paths ===
+SRC_DIR := src/boot
+BUILD_DIR := build
 
-# ====== Directories ======
-SRC_DIR     = src/boot
-BIN_DIR     = build/bin
-IMG_DIR     = build/img
+BOOT1_SRC := $(SRC_DIR)/boot1.s
+STAGE2_SRC := $(SRC_DIR)/stage2.s
 
-# ====== Files ======
-BOOT_SRC    = $(SRC_DIR)/boot1.s
+BOOT1_BIN := $(BUILD_DIR)/boot1.bin
+STAGE2_BIN := $(BUILD_DIR)/stage2.bin
+FLOPPY_IMG := $(BUILD_DIR)/floppy.img
 
-BOOT_BIN    = $(BIN_DIR)/boot.bin
+# === Tools ===
+ASM := nasm
+ASMFLAGS := -f bin
 
-BOOT_IMG    = $(IMG_DIR)/OS.img
+QEMU := qemu-system-i386
+MCOPY := mcopy
+MKFS := mkfs.fat
 
-# ====== Default Target ======
-all: $(BOOT_IMG)
+# === Targets ===
 
-# ====== Compile Bootloader and Stage2 ======
-$(BOOT_BIN): $(BOOT_SRC) | $(BIN_DIR)
-	$(ASM) -f bin $(BOOT_SRC) -o $(BOOT_BIN)
+all: $(BOOT1_BIN) $(STAGE2_BIN) $(FLOPPY_IMG)
 
+# Build boot1
+$(BOOT1_BIN): $(BOOT1_SRC)
+	@mkdir -p $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) -o $@ $<
 
-# ====== Create Disk Image ======
-$(BOOT_IMG): $(BOOT_BIN) | $(IMG_DIR)
-	dd if=$(BOOT_BIN) of=$(BOOT_IMG) bs=512 count=1 conv=notrunc status=none
+# Build stage2
+$(STAGE2_BIN): $(STAGE2_SRC)
+	@mkdir -p $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) -o $@ $<
 
-# ====== Ensure Directories ======
-$(BIN_DIR):
-	mkdir -p $(BIN_DIR)
+# Create floppy image and copy stage2.bin using mcopy (FAT12)
+$(FLOPPY_IMG): $(STAGE2_BIN)
+	@mkdir -p $(BUILD_DIR)
+	dd if=/dev/zero of=$@ bs=512 count=2880
+	$(MKFS) -F 12 $@
 
-$(IMG_DIR):
-	mkdir -p $(IMG_DIR)
+	$(MCOPY) -i $@ $(STAGE2_BIN) ::stage2.bin
 
-# ====== Run with QEMU ======
-run: $(BOOT_IMG)
-	$(QEMU) -fda $(BOOT_IMG)
+# Run in QEMU (boot1.bin as boot sector + stage2 loaded via FAT)
+run: all
+	dd if=$(BOOT1_BIN) of=$(FLOPPY_IMG) bs=512 count=1 conv=notrunc
+	$(QEMU) -fda $(FLOPPY_IMG)
 
-# ====== Clean ======
+# Clean build artifacts
 clean:
-	rm -rf $(BIN_DIR) $(IMG_DIR) && clear
+	rm -rf $(BUILD_DIR) && clear
 
 .PHONY: all clean run
