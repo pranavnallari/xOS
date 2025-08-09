@@ -308,7 +308,7 @@ msg_kernel_not_found:   db 'STAGE2.BIN file not found!', 0x0D, 0x0A, 0
 file_kernel_bin:        db 'STAGE2  BIN'
 cluster:         dw 0
 
-STAGE2_LOAD_SEGMENT     equ 0x2000
+STAGE2_LOAD_SEGMENT     equ 0x0050
 STAGE2_LOAD_OFFSET      equ 0
 
 
